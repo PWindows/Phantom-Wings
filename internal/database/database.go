@@ -9,9 +9,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/internal/models"
-	"github.com/pelican-dev/wings/system"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/internal/models"
+	"github.com/pwindows/phantom-wings/system"
 )
 
 var (
@@ -19,8 +19,6 @@ var (
 	db *gorm.DB
 )
 
-// Initialize configures the local SQLite database for Wings and ensures that the models have
-// been fully migrated.
 func Initialize() error {
 	if !o.SwapIf(true) {
 		panic("database: attempt to initialize more than once during application lifecycle")
@@ -51,8 +49,6 @@ func Initialize() error {
 	return nil
 }
 
-// Instance returns the gorm database instance that was configured when the application was
-// booted.
 func Instance() *gorm.DB {
 	if db == nil {
 		panic("database: attempt to access instance before initialized")
