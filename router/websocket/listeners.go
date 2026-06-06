@@ -8,20 +8,11 @@ import (
 	"emperror.dev/errors"
 	"github.com/goccy/go-json"
 
-	"github.com/pelican-dev/wings/events"
-	"github.com/pelican-dev/wings/system"
-
-	"github.com/pelican-dev/wings/server"
+	"github.com/pwindows/phantom-wings/events"
+	"github.com/pwindows/phantom-wings/server"
+	"github.com/pwindows/phantom-wings/system"
 )
 
-// RegisterListenerEvents will setup the server event listeners and expiration
-// timers. This is only triggered on first authentication with the websocket,
-// reconnections will not call it.
-//
-// This needs to be called once the socket is properly authenticated otherwise
-// you'll get a flood of error spam in the output that doesn't make sense because
-// Docker events being output to the socket will fail when it hasn't been
-// properly initialized yet.
 func (h *Handler) registerListenerEvents(ctx context.Context) {
 	h.Logger().Debug("registering event listeners for connection")
 
@@ -37,13 +28,7 @@ func (h *Handler) registerListenerEvents(ctx context.Context) {
 	go h.listenForExpiration(ctx)
 }
 
-// ListenForExpiration checks the time to expiration on the JWT every 30 seconds
-// until the token has expired. If we are within 3 minutes of the token expiring,
-// send a notice over the socket that it is expiring soon. If it has expired,
-// send that notice as well.
 func (h *Handler) listenForExpiration(ctx context.Context) {
-	// Make a ticker and completion channel that is used to continuously poll the
-	// JWT stored in the session to send events to the socket when it is expiring.
 	ticker := time.NewTicker(time.Second * 30)
 	defer ticker.Stop()
 
@@ -78,9 +63,6 @@ var e = []string{
 	server.TransferStatusEvent,
 }
 
-// ListenForServerEvents will listen for different events happening on a server
-// and send them along to the connected websocket client. This function will
-// block until the context provided to it is canceled.
 func (h *Handler) listenForServerEvents(ctx context.Context) error {
 	var o sync.Once
 	var err error
@@ -92,15 +74,12 @@ func (h *Handler) listenForServerEvents(ctx context.Context) error {
 	logOutput := make(chan []byte, 8)
 	installOutput := make(chan []byte, 4)
 
-	h.server.Events().On(eventChan) // TODO: make a sinky
+	h.server.Events().On(eventChan)
 	h.server.Sink(system.LogSink).On(logOutput)
 	h.server.Sink(system.InstallSink).On(installOutput)
 
 	onError := func(evt string, err2 error) {
 		h.Logger().WithField("event", evt).WithField("error", err2).Error("failed to send event over server websocket")
-		// Avoid race conditions by only setting the error once and then canceling
-		// the context. This way if additional processing errors come through due
-		// to a massive flood of things you still only report and stop at the first.
 		o.Do(func() {
 			err = err2
 		})
@@ -152,14 +131,10 @@ func (h *Handler) listenForServerEvents(ctx context.Context) error {
 		break
 	}
 
-	// These functions will automatically close the channel if it hasn't been already.
 	h.server.Events().Off(eventChan)
 	h.server.Sink(system.LogSink).Off(logOutput)
 	h.server.Sink(system.InstallSink).Off(installOutput)
 
-	// If the internal context is stopped it is either because the parent context
-	// got canceled or because we ran into an error. If the "err" variable is nil
-	// we can assume the parent was canceled and need not perform any actions.
 	if err != nil {
 		return errors.WithStack(err)
 	}
