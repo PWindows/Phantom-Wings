@@ -13,7 +13,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/goccy/go-json"
-	"github.com/pelican-dev/wings/config"
+	"github.com/pwindows/phantom-wings/config"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +28,7 @@ var configureArgs struct {
 
 var configureCmd = &cobra.Command{
 	Use:   "configure",
-	Short: "Use a token to configure wings automatically",
+	Short: "Use a token to configure Phantom Wings automatically",
 	Run:   configureCmdRun,
 }
 
@@ -129,7 +129,6 @@ func configureCmdRun(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	} else if res.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(res.Body)
-
 		fmt.Println("An error occurred while processing this request.\n", string(b))
 		os.Exit(1)
 	}
@@ -145,14 +144,13 @@ func configureCmdRun(cmd *cobra.Command, args []string) {
 		panic(err)
 	}
 
-	// Manually specify the Panel URL as it won't be decoded from JSON.
 	cfg.PanelLocation = configureArgs.PanelURL
 
 	if err = config.WriteToDisk(cfg); err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Successfully configured wings.")
+	fmt.Println("Successfully configured Phantom Wings.")
 }
 
 func getRequest() (*http.Request, error) {
@@ -183,7 +181,7 @@ func validateField(name string, str string) error {
 			return fmt.Errorf("please provide a valid panel URL")
 		}
 	case "token":
-		if !regexp.MustCompile(`^(peli|papp)_(\w{43})$`).Match([]byte(str)) {
+		if !regexp.MustCompile(`^(phan|papp)_(\w{43})$`).Match([]byte(str)) {
 			return fmt.Errorf("please provide a valid authentication token")
 		}
 	case "node":
