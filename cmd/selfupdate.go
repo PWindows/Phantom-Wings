@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pelican-dev/wings/system"
+	"github.com/pwindows/phantom-wings/system"
 	"github.com/spf13/cobra"
 )
 
@@ -25,12 +25,12 @@ var updateArgs struct {
 func newSelfupdateCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "update",
-		Short: "Update wings to the latest version",
+		Short: "Update Phantom Wings to the latest version",
 		Run:   selfupdateCmdRun,
 	}
 
-	command.Flags().StringVar(&updateArgs.repoOwner, "repo-owner", "pelican-dev", "GitHub repository owner")
-	command.Flags().StringVar(&updateArgs.repoName, "repo-name", "wings", "GitHub repository name")
+	command.Flags().StringVar(&updateArgs.repoOwner, "repo-owner", "pwindows", "GitHub repository owner")
+	command.Flags().StringVar(&updateArgs.repoName, "repo-name", "phantom-wings", "GitHub repository name")
 	command.Flags().BoolVar(&updateArgs.force, "force", false, "Force update even if on latest version")
 
 	return command
@@ -50,7 +50,6 @@ func selfupdateCmdRun(_ *cobra.Command, _ []string) {
 
 	fmt.Printf("Current version: %s\n", currentVersion)
 
-	// Fetch the latest release tag from GitHub API
 	latestVersionTag, err := fetchLatestGitHubRelease()
 	if err != nil {
 		fmt.Printf("Failed to fetch latest version: %v\n", err)
@@ -80,7 +79,7 @@ func selfupdateCmdRun(_ *cobra.Command, _ []string) {
 		return
 	}
 
-	fmt.Println("\nUpdate successful! Please restart the wings service (e.g., systemctl restart wings)")
+	fmt.Println("\nUpdate successful! Please restart the Phantom Wings service (e.g., systemctl restart wings)")
 }
 
 func performUpdate(version, binaryName string) error {
@@ -89,7 +88,7 @@ func performUpdate(version, binaryName string) error {
 	checksumURL := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/checksums.txt",
 		updateArgs.repoOwner, updateArgs.repoName, version)
 
-	tmpDir, err := os.MkdirTemp("", "wings-update-*")
+	tmpDir, err := os.MkdirTemp("", "phantom-wings-update-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %v", err)
 	}
@@ -118,41 +117,34 @@ func performUpdate(version, binaryName string) error {
 		return fmt.Errorf("failed to locate current executable: %v", err)
 	}
 
-	// Try rename first (faster if on same filesystem)
 	err = os.Rename(binaryPath, currentExecutable)
 	if err != nil {
-		// If rename fails (likely due to cross-filesystem), use copy instead
 		fmt.Println("Direct replacement failed, using copy method...")
-		
-		// Open source file
+
 		src, err := os.Open(binaryPath)
 		if err != nil {
 			return fmt.Errorf("failed to open source file: %v", err)
 		}
 		defer src.Close()
-		
-		// Create a temporary file in the same directory as the executable
+
 		execDir := filepath.Dir(currentExecutable)
 		tempExec := filepath.Join(execDir, fmt.Sprintf(".%s.new", filepath.Base(currentExecutable)))
-		
-		// Create the new executable file
+
 		dst, err := os.OpenFile(tempExec, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
 			return fmt.Errorf("failed to create new executable: %v", err)
 		}
-		
-		// Copy the content
+
 		_, err = io.Copy(dst, src)
 		dst.Close()
 		if err != nil {
-			os.Remove(tempExec) // Clean up on failure
+			os.Remove(tempExec)
 			return fmt.Errorf("failed to copy new binary: %v", err)
 		}
-		
-		// Replace the old executable with the new one
+
 		err = os.Rename(tempExec, currentExecutable)
 		if err != nil {
-			os.Remove(tempExec) // Clean up on failure
+			os.Remove(tempExec)
 			return fmt.Errorf("failed to replace executable: %v", err)
 		}
 	}
@@ -215,11 +207,17 @@ func fetchLatestGitHubRelease() (string, error) {
 }
 
 func determineBinaryName() string {
-	switch runtime.GOARCH {
-	case "amd64":
+	switch runtime.GOOS + "_" + runtime.GOARCH {
+	case "linux_amd64":
 		return "wings_linux_amd64"
-	case "arm64":
+	case "linux_arm64":
 		return "wings_linux_arm64"
+	case "windows_amd64":
+		return "wings_windows_amd64.exe"
+	case "darwin_amd64":
+		return "wings_darwin_amd64"
+	case "darwin_arm64":
+		return "wings_darwin_arm64"
 	default:
 		return ""
 	}
