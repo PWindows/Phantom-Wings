@@ -11,20 +11,19 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	dockerSystem "github.com/docker/docker/api/types/system" // Alias the correct system package
+	dockerSystem "github.com/docker/docker/api/types/system"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/docker/docker/pkg/parsers/operatingsystem"
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/environment"
-	"github.com/pelican-dev/wings/system"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/environment"
+	"github.com/pwindows/phantom-wings/system"
 )
 
-// GenerateDiagnosticsReport collects diagnostic data and returns it as a string.
 func GenerateDiagnosticsReport(includeEndpoints bool, includeLogs bool, logLines int) (string, error) {
 	dockerVersion, dockerInfo, dockerErr := getDockerInfo()
 	output := &strings.Builder{}
 
-	fmt.Fprintln(output, "Pelican Wings - Diagnostics Report")
+	fmt.Fprintln(output, "Phantom Wings - Diagnostics Report")
 	printHeader(output, "Versions")
 	fmt.Fprintln(output, "               Wings:", system.Version)
 	if dockerErr == nil {
@@ -37,7 +36,7 @@ func GenerateDiagnosticsReport(includeEndpoints bool, includeLogs bool, logLines
 		fmt.Fprintln(output, "                  OS:", os)
 	}
 
-	printHeader(output, "Wings Configuration")
+	printHeader(output, "Phantom Wings Configuration")
 	if err := config.FromFile(config.DefaultLocation); err != nil {
 	}
 	cfg := config.Get()
@@ -94,7 +93,7 @@ func GenerateDiagnosticsReport(includeEndpoints bool, includeLogs bool, logLines
 		fmt.Fprint(output, "Couldn't list containers: ", err)
 	}
 
-	printHeader(output, "Latest Wings Logs")
+	printHeader(output, "Latest Phantom Wings Logs")
 	if includeLogs {
 		p := path.Join(cfg.System.LogDirectory, "wings.log")
 		if c, err := exec.Command("tail", "-n", strconv.Itoa(logLines), p).Output(); err == nil {
