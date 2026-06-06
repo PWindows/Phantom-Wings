@@ -27,16 +27,16 @@ import (
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/environment"
-	"github.com/pelican-dev/wings/internal/cron"
-	"github.com/pelican-dev/wings/internal/database"
-	"github.com/pelican-dev/wings/loggers/cli"
-	"github.com/pelican-dev/wings/remote"
-	"github.com/pelican-dev/wings/router"
-	"github.com/pelican-dev/wings/server"
-	"github.com/pelican-dev/wings/sftp"
-	"github.com/pelican-dev/wings/system"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/environment"
+	"github.com/pwindows/phantom-wings/internal/cron"
+	"github.com/pwindows/phantom-wings/internal/database"
+	"github.com/pwindows/phantom-wings/loggers/cli"
+	"github.com/pwindows/phantom-wings/remote"
+	"github.com/pwindows/phantom-wings/router"
+	"github.com/pwindows/phantom-wings/server"
+	"github.com/pwindows/phantom-wings/sftp"
+	"github.com/pwindows/phantom-wings/system"
 )
 
 var (
@@ -46,7 +46,7 @@ var (
 
 var rootCommand = &cobra.Command{
 	Use:   "wings",
-	Short: "Runs the API server allowing programmatic control of game servers for Pelican Panel.",
+	Short: "Runs the API server allowing programmatic control of game servers for Phantom Panel.",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		initConfig()
 		initLogging()
@@ -78,7 +78,6 @@ func init() {
 	rootCommand.PersistentFlags().StringVar(&configPath, "config", config.DefaultLocation, "set the location for the configuration file")
 	rootCommand.PersistentFlags().BoolVar(&debug, "debug", false, "pass in order to run wings in debug mode")
 
-	// Flags specifically used when running the API.
 	rootCommand.Flags().Bool("pprof", false, "if the pprof profiler should be enabled. The profiler will bind to localhost:6060 by default")
 	rootCommand.Flags().Int("pprof-block-rate", 0, "enables block profile support, may have performance impacts")
 	rootCommand.Flags().Int("pprof-port", 6060, "If provided with --pprof, the port it will run on")
@@ -98,14 +97,13 @@ func isDockerSnap() bool {
 		log.Fatalf("Unable to initialize Docker client: %s", err)
 	}
 
-	defer cli.Close() // Close the client when the function returns (should not be needed, but just to be safe)
+	defer cli.Close()
 
 	info, err := cli.Info(context.Background())
 	if err != nil {
 		log.Fatalf("Unable to get Docker info: %s", err)
 	}
 
-	// Check if Docker root directory contains '/var/snap/docker'
 	return strings.Contains(info.DockerRootDir, "/var/snap/docker")
 }
 
@@ -132,15 +130,15 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 	}
 	log.WithField("timezone", config.Get().System.Timezone).Info("configured wings with system timezone")
 	if err := config.ConfigureDirectories(); err != nil {
-		log.WithField("error", err).Fatal("failed to configure system directories for pelican")
+		log.WithField("error", err).Fatal("failed to configure system directories for phantom")
 		return
 	}
 	if err := config.EnsurePelicanUser(); err != nil {
-		log.WithField("error", err).Fatal("failed to create pelican system user")
+		log.WithField("error", err).Fatal("failed to create phantom system user")
 		return
 	}
 	if err := config.ConfigurePasswd(); err != nil {
-		log.WithField("error", err).Fatal("failed to create passwd files for pelican")
+		log.WithField("error", err).Fatal("failed to create passwd files for phantom")
 	}
 	log.WithFields(log.Fields{
 		"username": config.Get().System.Username,
@@ -186,7 +184,6 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		}
 	}
 
-	// Just for some nice log output.
 	for _, s := range manager.All() {
 		log.WithField("server", s.ID()).Info("finished loading configuration for server")
 	}
@@ -197,9 +194,6 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 	}
 
 	ticker := time.NewTicker(time.Minute)
-	// Every minute, write the current server states to the disk to allow for a more
-	// seamless hard-reboot process in which wings will re-sync server states based
-	// on its last tracked state.
 	go func() {
 		for {
 			select {
@@ -214,14 +208,10 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		}
 	}()
 
-	// Create a new workerpool that limits us to 4 servers being bootstrapped at a time
-	// on Wings. This allows us to ensure the environment exists, write configurations,
-	// and reboot processes without causing a slow-down due to sequential booting.
 	pool := workerpool.New(4)
 	for _, serv := range manager.All() {
 		s := serv
 
-		// For each server we encounter make sure the root data directory exists.
 		if err := s.EnsureDataDirectoryExists(); err != nil {
 			s.Log().Error("could not create root data directory for server: not loading server...")
 			continue
@@ -234,52 +224,25 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 				st = state
 			}
 
-			// Use a timed context here to avoid booting issues where Docker hangs for a
-			// specific container that would cause Wings to be un-bootable until the entire
-			// machine is rebooted. It is much better for us to just have a single failed
-			// server instance than an entire offline node.
-			//
-			// @see https://github.com/pterodactyl/panel/issues/2475
-			// @see https://github.com/pterodactyl/panel/issues/3358
 			ctx, cancel := context.WithTimeout(cmd.Context(), time.Second*30)
 			defer cancel()
 
 			r, err := s.Environment.IsRunning(ctx)
-			// We ignore missing containers because we don't want to actually block booting of wings at this
-			// point. If we didn't do this, and you pruned all the images and then started wings you could
-			// end up waiting a long period of time for all the images to be re-pulled on Wings boot rather
-			// than when the server itself is started.
 			if err != nil && !client.IsErrNotFound(err) {
 				s.Log().WithField("error", err).Error("error checking server environment status")
 			}
 
-			// Check if the server was previously running. If so, attempt to start the server now so that Wings
-			// can pick up where it left off. If the environment does not exist at all, just create it and then allow
-			// the normal flow to execute.
-			//
-			// This does mean that booting wings after a catastrophic machine crash and wiping out the Docker images
-			// as a result will result in a slow boot.
 			if !r && (st == environment.ProcessRunningState || st == environment.ProcessStartingState) {
 				if err := s.HandlePowerAction(server.PowerActionStart); err != nil {
 					s.Log().WithField("error", err).Warn("failed to return server to running state")
 				}
 			} else if r || (!r && s.IsRunning()) {
-				// If the server is currently running on Docker, mark the process as being in that state.
-				// We never want to stop an instance that is currently running external from Wings since
-				// that is a good way of keeping things running even if Wings gets in a very corrupted state.
-				//
-				// This will also validate that a server process is running if the last tracked state we have
-				// is that it was running, but we see that the container process is not currently running.
 				s.Log().Info("detected server is running, re-attaching to process...")
-
 				s.Environment.SetState(environment.ProcessRunningState)
 				if err := s.Environment.Attach(ctx); err != nil {
 					s.Log().WithField("error", err).Warn("failed to attach to running server environment")
 				}
 			} else {
-				// At this point we've determined that the server should indeed be in an offline state, so we'll
-				// make a call to set that state just to ensure we don't ever accidentally end up with some invalid
-				// state being tracked.
 				s.Environment.SetState(environment.ProcessOfflineState)
 			}
 
@@ -292,11 +255,8 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		})
 	}
 
-	// Wait until all the servers are ready to go before we fire up the SFTP and HTTP servers.
 	pool.StopWait()
 	defer func() {
-		// Cancel the context on all the running servers at this point, even though the
-		// program is just shutting down.
 		for _, s := range manager.All() {
 			s.CtxCancel()
 		}
@@ -310,7 +270,6 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 	}
 
 	go func() {
-		// Run the SFTP server.
 		if err := sftp.New(manager).Run(); err != nil {
 			log.WithError(err).Fatal("failed to initialize the sftp server")
 			return
@@ -319,20 +278,16 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 
 	go func() {
 		log.Info("updating server states on Panel: marking installing/restoring servers as normal")
-		// Update all the servers on the Panel to be in a valid state if they're
-		// currently marked as installing/restoring now that Wings is restarted.
 		if err := pclient.ResetServersState(cmd.Context()); err != nil {
 			log.WithField("error", err).Error("failed to reset server states on Panel: some instances may be stuck in an installing/restoring state unexpectedly")
 		}
 	}()
 
 	sys := config.Get().System
-	// Ensure the archive directory exists.
 	if err := os.MkdirAll(sys.ArchiveDirectory, 0o755); err != nil {
 		log.WithField("error", err).Error("failed to create archive directory")
 	}
 
-	// Ensure the backup directory exists.
 	if err := os.MkdirAll(sys.BackupDirectory, 0o755); err != nil {
 		log.WithField("error", err).Error("failed to create backup directory")
 	}
@@ -351,8 +306,6 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		"host_port":    api.Port,
 	}).Info("configuring internal webserver")
 
-	// Create a new HTTP server instance to handle inbound requests from the Panel
-	// and external clients.
 	s := &http.Server{
 		Addr:      api.Host + ":" + strconv.Itoa(api.Port),
 		Handler:   router.Configure(manager, pclient),
@@ -364,7 +317,6 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		if r, _ := cmd.Flags().GetInt("pprof-block-rate"); r > 0 {
 			runtime.SetBlockProfileRate(r)
 		}
-		// Catch at least 1% of mutex contention issues.
 		runtime.SetMutexProfileFraction(100)
 
 		profilePort, _ := cmd.Flags().GetInt("pprof-port")
@@ -373,7 +325,6 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		}()
 	}
 
-	// Check if the server should run with TLS but using autocert.
 	if autotls {
 		m := autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
@@ -383,25 +334,20 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 
 		log.WithField("hostname", tlshostname).Info("webserver is now listening with auto-TLS enabled; certificates will be automatically generated by Let's Encrypt")
 
-		// Hook autocert into the main http server.
 		s.TLSConfig.GetCertificate = m.GetCertificate
-		s.TLSConfig.NextProtos = append(s.TLSConfig.NextProtos, acme.ALPNProto) // enable tls-alpn ACME challenges
+		s.TLSConfig.NextProtos = append(s.TLSConfig.NextProtos, acme.ALPNProto)
 
-		// Start the autocert server.
 		go func() {
 			if err := http.ListenAndServe(":http", m.HTTPHandler(nil)); err != nil {
 				log.WithError(err).Error("failed to serve autocert http server")
 			}
 		}()
-		// Start the main http server with TLS using autocert.
 		if err := s.ListenAndServeTLS("", ""); err != nil {
 			log.WithFields(log.Fields{"auto_tls": true, "tls_hostname": tlshostname, "error": err}).Fatal("failed to configure HTTP server using auto-tls")
 		}
 		return
 	}
 
-	// Check if main http server should run with TLS. Otherwise, reset the TLS
-	// config on the server and then serve it over normal HTTP.
 	if api.Ssl.Enabled {
 		if err := s.ListenAndServeTLS(api.Ssl.CertificateFile, api.Ssl.KeyFile); err != nil {
 			log.WithFields(log.Fields{"auto_tls": false, "error": err}).Fatal("failed to configure HTTPS server")
@@ -414,8 +360,6 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 	}
 }
 
-// Reads the configuration from the disk and then sets up the global singleton
-// with all the configuration values.
 func initConfig() {
 	if !filepath.IsAbs(configPath) {
 		d, err := filepath.Abs(configPath)
@@ -436,8 +380,6 @@ func initConfig() {
 	}
 }
 
-// Configures the global logger for Zap so that we can call it from any location
-// in the code without having to pass around a logger instance.
 func initLogging() {
 	dir := config.Get().System.LogDirectory
 	if err := os.MkdirAll(path.Join(dir, "/install"), 0o700); err != nil {
@@ -456,36 +398,34 @@ func initLogging() {
 	log.WithField("path", p).Info("writing log files to disk")
 }
 
-// Prints the wings logo, nothing special here!
 func printLogo() {
 	fmt.Printf(colorstring.Color(`
-                     ____
-__ [blue][bold]Pelican[reset] _____/___/_______ _______ ______
+                 ____
+__ [yellow][bold]Phantom[reset] _____/___/_______ _______ ______
 \_____\    \/\/    /   /       /  __   /   ___/
    \___\          /   /   /   /  /_/  /___   /
         \___/\___/___/___/___/___    /______/
                             /_______/ [bold]%s[reset]
 
-Copyright © 2018 - %d Dane Everitt & Contributors
-
-Website:  https://pelican.dev
- Source:  https://github.com/pelican-dev/wings
-License:  https://github.com/pelican-dev/wings/blob/main/LICENSE
+© PWindows™ 2026 — Phantom Wings
+Website:  https://pwindows.qzz.io
+ Source:  https://github.com/pwindows/phantom-wings
+License:  https://github.com/pwindows/phantom-wings/blob/main/LICENSE
 
 This software is made available under the terms of the MIT license.
 The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.%s`), system.Version, time.Now().Year(), "\n\n")
+in all copies or substantial portions of the Software.%s`), system.Version, "\n\n")
 }
 
 func exitWithConfigurationNotice() {
 	fmt.Print(colorstring.Color(`
 [_red_][white][bold]Error: Configuration File Not Found[reset]
 
-Wings was not able to locate your configuration file, and therefore is not
+Phantom Wings was not able to locate your configuration file, and therefore is not
 able to complete its boot process. Please ensure you have copied your instance
 configuration file into the default location below.
 
-Default Location: /etc/pelican/config.yml
+Default Location: /etc/phantom/config.yml
 
 [yellow]This is not a bug with this software. Please do not make a bug report
 for this issue, it will be closed.[reset]
