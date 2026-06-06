@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/pelican-dev/wings/internal/models"
-
 	"emperror.dev/errors"
 	"github.com/apex/log"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/pwindows/phantom-wings/internal/models"
 )
 
 const (
@@ -19,9 +19,6 @@ const (
 	ProcessStopNativeStop = "stop"
 )
 
-// GetServers returns all the servers that are present on the Panel making
-// parallel API calls to the endpoint if more than one page of servers is
-// returned.
 func (c *client) GetServers(ctx context.Context, limit int) ([]RawServerData, error) {
 	servers, meta, err := c.getServersPaged(ctx, 0, limit)
 	if err != nil {
@@ -52,13 +49,6 @@ func (c *client) GetServers(ctx context.Context, limit int) ([]RawServerData, er
 	return servers, nil
 }
 
-// ResetServersState updates the state of all servers on the node that are
-// currently marked as "installing" or "restoring from backup" to be marked as
-// a normal successful install state.
-//
-// This handles Wings exiting during either of these processes which will leave
-// things in a bad state within the Panel. This API call is executed once Wings
-// has fully booted all the servers.
 func (c *client) ResetServersState(ctx context.Context) error {
 	res, err := c.Post(ctx, "/servers/reset", nil)
 	if err != nil {
@@ -75,7 +65,6 @@ func (c *client) GetServerConfiguration(ctx context.Context, uuid string) (Serve
 		return config, err
 	}
 	defer res.Body.Close()
-
 	err = res.BindJSON(&config)
 	return config, err
 }
@@ -86,7 +75,6 @@ func (c *client) GetInstallationScript(ctx context.Context, uuid string) (Instal
 		return InstallationScript{}, err
 	}
 	defer res.Body.Close()
-
 	var config InstallationScript
 	err = res.BindJSON(&config)
 	return config, err
@@ -123,11 +111,6 @@ func (c *client) SetTransferStatus(ctx context.Context, uuid string, successful 
 	return nil
 }
 
-// ValidateSftpCredentials makes a request to determine if the username and
-// password combination provided is associated with a valid server on the instance
-// using the Panel's authentication control mechanisms. This will get itself
-// throttled if too many requests are made, allowing us to completely offload
-// all the authorization security logic to the Panel.
 func (c *client) ValidateSftpCredentials(ctx context.Context, request SftpAuthRequest) (SftpAuthResponse, error) {
 	var auth SftpAuthResponse
 	res, err := c.Post(ctx, "/sftp/auth", request)
@@ -139,7 +122,6 @@ func (c *client) ValidateSftpCredentials(ctx context.Context, request SftpAuthRe
 		return auth, err
 	}
 	defer res.Body.Close()
-
 	if err := res.BindJSON(&auth); err != nil {
 		return auth, err
 	}
@@ -168,9 +150,6 @@ func (c *client) SetBackupStatus(ctx context.Context, backup string, data Backup
 	return nil
 }
 
-// SendRestorationStatus triggers a request to the Panel to notify it that a
-// restoration has been completed and the server should be marked as being
-// activated again.
 func (c *client) SendRestorationStatus(ctx context.Context, backup string, successful bool) error {
 	resp, err := c.Post(ctx, fmt.Sprintf("/backups/%s/restore", backup), d{"successful": successful})
 	if err != nil {
@@ -180,7 +159,6 @@ func (c *client) SendRestorationStatus(ctx context.Context, backup string, succe
 	return nil
 }
 
-// SendActivityLogs sends activity logs back to the Panel for processing.
 func (c *client) SendActivityLogs(ctx context.Context, activity []models.Activity) error {
 	resp, err := c.Post(ctx, "/activity", d{"data": activity})
 	if err != nil {
@@ -190,8 +168,6 @@ func (c *client) SendActivityLogs(ctx context.Context, activity []models.Activit
 	return nil
 }
 
-// getServersPaged returns a subset of servers from the Panel API using the
-// pagination query parameters.
 func (c *client) getServersPaged(ctx context.Context, page, limit int) ([]RawServerData, Pagination, error) {
 	var r struct {
 		Data []RawServerData `json:"data"`
@@ -212,7 +188,6 @@ func (c *client) getServersPaged(ctx context.Context, page, limit int) ([]RawSer
 	return r.Data, r.Meta, nil
 }
 
-// PushServerStateChange updates the Panel with state change notifications
 func (c *client) PushServerStateChange(ctx context.Context, sid string, sc ServerStateChange) error {
 	resp, err := c.Post(ctx, fmt.Sprintf("/servers/%s/container/status", sid), d{"data": sc})
 	if err != nil {
