@@ -16,7 +16,7 @@ import (
 	"github.com/docker/docker/errdefs"
 	"github.com/goccy/go-json"
 
-	"github.com/pelican-dev/wings/config"
+	"github.com/pwindows/phantom-wings/config"
 )
 
 var (
@@ -45,17 +45,9 @@ func configure(c *client.Client) {
 	})
 }
 
-// ContainerInspect is a rough equivalent of Docker's client.ContainerInspect()
-// but re-written to use a more performant JSON decoder. This is important since
-// a large number of requests to this endpoint are spawned by Wings, and the
-// standard "encoding/json" shows its performance woes badly even with single
-// containers running.
 func (e *Environment) ContainerInspect(ctx context.Context) (container.InspectResponse, error) {
 	configure(e.client)
 
-	// Support feature flagging of this functionality so that if something goes
-	// wrong for now it is easy enough for people to switch back to the older method
-	// of fetching stats.
 	if !fastEnabled {
 		return e.client.ContainerInspect(ctx, e.Id)
 	}
@@ -94,8 +86,6 @@ func (e *Environment) ContainerInspect(ctx context.Context) (container.InspectRe
 	return st, nil
 }
 
-// parseErrorFromResponse is a re-implementation of Docker's
-// client.checkResponseErr() function.
 func parseErrorFromResponse(res *http.Response, body []byte) error {
 	if res.StatusCode >= 200 && res.StatusCode < 400 {
 		return nil
