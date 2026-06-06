@@ -14,12 +14,12 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
-	"github.com/pelican-dev/wings/internal/diagnostics"
-	"github.com/pelican-dev/wings/loggers/cli"
+	"github.com/pwindows/phantom-wings/internal/diagnostics"
+	"github.com/pwindows/phantom-wings/loggers/cli"
 )
 
 const (
-	DefaultHastebinUrl = "https://logs.pelican.dev"
+	DefaultHastebinUrl = "https://logs.pwindows.qzz.io"
 	DefaultLogLines    = 200
 )
 
@@ -34,7 +34,7 @@ var diagnosticsArgs struct {
 func newDiagnosticsCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "diagnostics",
-		Short: "Collect and report information about this Wings instance to assist in debugging.",
+		Short: "Collect and report information about this Phantom Wings instance to assist in debugging.",
 		PreRun: func(cmd *cobra.Command, args []string) {
 			initConfig()
 			log.SetHandler(cli.Default)
@@ -48,15 +48,7 @@ func newDiagnosticsCommand() *cobra.Command {
 	return command
 }
 
-// diagnosticsCmdRun collects diagnostics about wings, its configuration and the node.
-// We collect:
-// - wings and docker versions
-// - relevant parts of daemon configuration
-// - the docker debug output
-// - running docker containers
-// - logs
 func diagnosticsCmdRun(*cobra.Command, []string) {
-	// To set default to true
 	defaultTrueConfirmAccessor := func() huh.Accessor[bool] {
 		accessor := huh.EmbeddedAccessor[bool]{}
 		accessor.Set(true)
