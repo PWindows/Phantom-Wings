@@ -2,8 +2,8 @@ package environment
 
 import (
 	"context"
-	"strings"
 	"strconv"
+	"strings"
 	"sync"
 
 	"emperror.dev/errors"
@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 
-	"github.com/pelican-dev/wings/config"
+	"github.com/pwindows/phantom-wings/config"
 )
 
 var (
@@ -19,9 +19,6 @@ var (
 	_client *client.Client
 )
 
-// Docker returns a docker client to be used throughout the codebase. Once a
-// client has been created it will be returned for all subsequent calls to this
-// function.
 func Docker() (*client.Client, error) {
 	var err error
 	_conce.Do(func() {
@@ -30,9 +27,7 @@ func Docker() (*client.Client, error) {
 	return _client, errors.Wrap(err, "environment/docker: could not create client")
 }
 
-// ConfigureDocker configures the required network for the docker environment.
 func ConfigureDocker(ctx context.Context) error {
-	// Ensure the required docker network exists on the system.
 	cli, err := Docker()
 	if err != nil {
 		return err
@@ -45,12 +40,11 @@ func ConfigureDocker(ctx context.Context) error {
 			return err
 		}
 
-		log.Info("creating missing pelican0 interface, this could take a few seconds...")
+		log.Info("creating missing phantom0 interface, this could take a few seconds...")
 		if err := createDockerNetwork(ctx, cli); err != nil {
 			return err
 		}
 
-		// Re-inspect the network after creation to get the actual configuration
 		resource, err = cli.NetworkInspect(ctx, nw.Name, network.InspectOptions{})
 		if err != nil {
 			return errors.Wrap(err, "environment/docker: failed to inspect newly created network")
@@ -72,14 +66,11 @@ func ConfigureDocker(ctx context.Context) error {
 			c.Docker.Network.ISPN = false
 		}
 
-		// Update the interface configuration with the actual assigned values from Docker
-		// Skip IPAM processing for special drivers that don't have normal IPAM configs
 		if c.Docker.Network.Driver != "host" && c.Docker.Network.Driver != "overlay" && c.Docker.Network.Driver != "weavemesh" {
 			for _, ipamCfg := range resource.IPAM.Config {
 				if ipamCfg.Subnet == "" {
 					continue
 				}
-				// IPv6 subnets contain colons
 				if strings.Contains(ipamCfg.Subnet, ":") {
 					c.Docker.Network.Interfaces.V6.Subnet = ipamCfg.Subnet
 					if ipamCfg.Gateway != "" {
@@ -98,14 +89,10 @@ func ConfigureDocker(ctx context.Context) error {
 	return nil
 }
 
-// Creates a new network on the machine if one does not exist already.
-// If the configured subnet conflicts with existing networks, it will automatically
-// retry with Docker auto-assigning the subnet to avoid "Pool overlaps" errors.
 func createDockerNetwork(ctx context.Context, cli *client.Client) error {
 	nw := config.Get().Docker.Network
 	enableIPv6 := nw.IPv6
 
-	// Build IPAM config with the configured subnets
 	ipamConfigs := []network.IPAMConfig{}
 	if nw.Interfaces.V4.Subnet != "" {
 		ipamConfigs = append(ipamConfigs, network.IPAMConfig{
@@ -128,40 +115,30 @@ func createDockerNetwork(ctx context.Context, cli *client.Client) error {
 			Config: ipamConfigs,
 		},
 		Options: map[string]string{
-			"encryption": "false",
+			"encryption":                                      "false",
 			"com.docker.network.bridge.default_bridge":       "false",
 			"com.docker.network.bridge.enable_icc":           strconv.FormatBool(nw.EnableICC),
 			"com.docker.network.bridge.enable_ip_masquerade": "true",
 			"com.docker.network.bridge.host_binding_ipv4":    "0.0.0.0",
-			"com.docker.network.bridge.name":                 "pelican0",
+			"com.docker.network.bridge.name":                 "phantom0",
 			"com.docker.network.driver.mtu":                  strconv.FormatInt(nw.NetworkMTU, 10),
 		},
 	}
 
-	// Try to create the network with the configured subnet
 	_, err := cli.NetworkCreate(ctx, nw.Name, createOpts)
 	if err != nil {
-		// Check if the error is a pool overlap issue
 		errStr := err.Error()
 		if strings.Contains(errStr, "Pool overlaps") || strings.Contains(errStr, "invalid pool request") {
 			log.Warn("configured subnet conflicts with existing network, letting Docker auto-assign subnet...")
-			
-			// Retry without specifying IPAM config - let Docker auto-assign
-			createOpts.IPAM = &network.IPAM{
-				Driver: "default",
-				// Don't specify Config - let Docker choose available subnets
-			}
-			
+			createOpts.IPAM = &network.IPAM{Driver: "default"}
 			_, err = cli.NetworkCreate(ctx, nw.Name, createOpts)
 			if err != nil {
 				return errors.Wrap(err, "environment/docker: failed to create network even with auto-assigned subnet")
 			}
-			
 			log.Info("network created successfully with Docker auto-assigned subnet")
 		} else {
 			return errors.Wrap(err, "environment/docker: failed to create network")
 		}
 	}
-
 	return nil
 }
