@@ -7,10 +7,10 @@ import (
 	"emperror.dev/errors"
 	"gorm.io/gorm"
 
-	"github.com/pelican-dev/wings/internal/database"
-	"github.com/pelican-dev/wings/internal/models"
-	"github.com/pelican-dev/wings/server"
-	"github.com/pelican-dev/wings/system"
+	"github.com/pwindows/phantom-wings/internal/database"
+	"github.com/pwindows/phantom-wings/internal/models"
+	"github.com/pwindows/phantom-wings/server"
+	"github.com/pwindows/phantom-wings/system"
 )
 
 type sftpCron struct {
@@ -33,11 +33,6 @@ type eventMap struct {
 	m   map[mapKey]*models.Activity
 }
 
-// Run executes the SFTP reconciliation cron. This job will pull all of the SFTP specific events
-// and merge them together across user, server, ip, and event. This allows a SFTP event that deletes
-// tens or hundreds of files to be tracked as a single "deletion" event so long as they all occur
-// within the same one minute period of time (starting at the first timestamp for the group). Without
-// this we'd end up flooding the Panel event log with excessive data that is of no use to end users.
 func (sc *sftpCron) Run(ctx context.Context) error {
 	if !sc.mu.SwapIf(true) {
 		return errors.WithStack(ErrCronRunning)
@@ -66,8 +61,6 @@ func (sc *sftpCron) Run(ctx context.Context) error {
 			events.Push(a)
 		}
 		if len(events.ids) > slen {
-			// Execute the query again, we found some events so we want to continue
-			// with this. Start at the next offset.
 			activity, err = sc.fetchRecords(ctx, o)
 			if err != nil {
 				return errors.WithStack(err)
@@ -85,9 +78,6 @@ func (sc *sftpCron) Run(ctx context.Context) error {
 		return errors.Wrap(err, "failed to send sftp activity logs to Panel")
 	}
 
-	// SQLite has a limitation of how many parameters we can specify in a single
-	// query, so we need to delete the activies in chunks of 32,000 instead of
-	// all at once.
 	i := 0
 	idsLen := len(events.ids)
 	var tx *gorm.DB
@@ -107,11 +97,6 @@ func (sc *sftpCron) Run(ctx context.Context) error {
 	return nil
 }
 
-// fetchRecords returns a group of activity events starting at the given offset. This is used
-// since we might need to make multiple database queries to select enough events to properly
-// fill up our request to the given maximum. This is due to the fact that this cron merges any
-// activity that line up across user, server, ip, and event into a single activity record when
-// sending the data to the Panel.
 func (sc *sftpCron) fetchRecords(ctx context.Context, offset int) (activity []models.Activity, err error) {
 	tx := database.Instance().WithContext(ctx).
 		Where("event LIKE ?", "server:sftp.%").
@@ -125,19 +110,12 @@ func (sc *sftpCron) fetchRecords(ctx context.Context, offset int) (activity []mo
 	return
 }
 
-// Push adds an activity to the event mapping, or de-duplicates it and merges the files metadata
-// into the existing entity that exists.
 func (em *eventMap) Push(a models.Activity) {
 	m := em.forActivity(a)
-	// If no activity entity is returned we've hit the cap for the number of events to
-	// send along to the Panel. Just skip over this record and we'll account for it in
-	// the next iteration.
 	if m == nil {
 		return
 	}
 	em.ids = append(em.ids, a.ID)
-	// Always reduce this to the first timestamp that was recorded for the set
-	// of events, and not
 	if a.Timestamp.Before(m.Timestamp) {
 		m.Timestamp = a.Timestamp
 	}
@@ -150,14 +128,10 @@ func (em *eventMap) Push(a models.Activity) {
 		for i := 0; i < v.Len(); i++ {
 			list = append(list, v.Index(i).Interface())
 		}
-		// You must set it again at the end of the process, otherwise you've only updated the file
-		// slice in this one loop since it isn't passed by reference. This is just shorter than having
-		// to explicitly keep casting it to the slice.
 		m.Metadata["files"] = list
 	}
 }
 
-// Elements returns the finalized activity models.
 func (em *eventMap) Elements() (out []models.Activity) {
 	for _, v := range em.m {
 		out = append(out, *v)
@@ -165,27 +139,20 @@ func (em *eventMap) Elements() (out []models.Activity) {
 	return
 }
 
-// forActivity returns an event entity from our map which allows existing matches to be
-// updated with additional files.
 func (em *eventMap) forActivity(a models.Activity) *models.Activity {
 	key := mapKey{
-		User:   a.User.String,
-		Server: a.Server,
-		IP:     a.IP,
-		Event:  a.Event,
-		// We group by the minute, don't care about the seconds for this logic.
+		User:      a.User.String,
+		Server:    a.Server,
+		IP:        a.IP,
+		Event:     a.Event,
 		Timestamp: a.Timestamp.Format("2006-01-02_15:04"),
 	}
 	if v, ok := em.m[key]; ok {
 		return v
 	}
-	// Cap the size of the events map at the defined maximum events to send to the Panel. Just
-	// return nil and let the caller handle it.
 	if len(em.m) >= em.max {
 		return nil
 	}
-	// Doesn't exist in our map yet, create a copy of the activity passed into this
-	// function and then assign it into the map with an empty metadata value.
 	v := a
 	v.Metadata = models.ActivityMeta{
 		"files": make([]interface{}, 0),
