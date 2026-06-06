@@ -73,4 +73,13 @@ func (ac *activityCron) Run(ctx context.Context) error {
 		end := min(i+32000, idsLen)
 		batchSize := end - start
 
-		tx = database.Instance().WithContext(ctx).Where("
+		tx = database.Instance().WithContext(ctx).Where("id IN ?", ids[start:end]).Delete(&models.Activity{})
+		if tx.Error != nil {
+			return errors.WithStack(tx.Error)
+		}
+
+		i += batchSize
+	}
+
+	return nil
+}
