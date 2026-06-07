@@ -10,7 +10,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/apex/log"
 
-	"github.com/pelican-dev/wings/internal/ufs"
+	"github.com/pwindows/phantom-wings/internal/ufs"
 )
 
 type SpaceCheckingOpts struct {

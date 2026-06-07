@@ -9,11 +9,11 @@ import (
 	"emperror.dev/errors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/pelican-dev/wings/environment"
-	"github.com/pelican-dev/wings/router/middleware"
-	"github.com/pelican-dev/wings/server"
-	"github.com/pelican-dev/wings/server/installer"
-	"github.com/pelican-dev/wings/server/transfer"
+	"github.com/pwindows/phantom-wings/environment"
+	"github.com/pwindows/phantom-wings/router/middleware"
+	"github.com/pwindows/phantom-wings/server"
+	"github.com/pwindows/phantom-wings/server/installer"
+	"github.com/pwindows/phantom-wings/server/transfer"
 )
 
 // Data passed over to initiate a server transfer.

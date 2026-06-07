@@ -10,11 +10,11 @@ import (
 
 	"github.com/apex/log"
 
-	"github.com/pelican-dev/wings/events"
-	"github.com/pelican-dev/wings/system"
+	"github.com/pwindows/phantom-wings/events"
+	"github.com/pwindows/phantom-wings/system"
 
-	"github.com/pelican-dev/wings/environment"
-	"github.com/pelican-dev/wings/remote"
+	"github.com/pwindows/phantom-wings/environment"
+	"github.com/pwindows/phantom-wings/remote"
 )
 
 var dockerEvents = []string{

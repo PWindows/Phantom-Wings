@@ -133,7 +133,7 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		log.WithField("error", err).Fatal("failed to configure system directories for phantom")
 		return
 	}
-	if err := config.EnsurePelicanUser(); err != nil {
+	if err := config.EnsurePhantomUser(); err != nil {
 		log.WithField("error", err).Fatal("failed to create phantom system user")
 		return
 	}

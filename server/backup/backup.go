@@ -14,9 +14,9 @@ import (
 	"github.com/mholt/archives"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/remote"
-	"github.com/pelican-dev/wings/server/filesystem"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/remote"
+	"github.com/pwindows/phantom-wings/server/filesystem"
 )
 
 var format = archives.CompressedArchive{

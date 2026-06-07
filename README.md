@@ -1,4 +1,4 @@
-<img width="20%" src="https://raw.githubusercontent.com/pelican-dev/panel/main/public/pelican.svg" alt="logo">
+<img width="20%" src="https://raw.githubusercontent.com/pwindows/panel/main/public/pelican.svg" alt="logo">
 
 # Phantom Wings
 
@@ -21,8 +21,8 @@ In addition, Wings ships with a built-in SFTP server allowing your system to rem
 
 ## Documentation
 
-* [Panel Documentation](https://pelican.dev/docs/panel/getting-started)
-* [Wings Documentation](https://pelican.dev/docs/wings/install)
+* [Panel Documentation](https://pwindows.qzz.io/docs/panel/getting-started)
+* [Wings Documentation](https://pwindows.qzz.io/docs/wings/install)
 * Or, get additional help [via Discord](https://discord.pwindows.qzz.io/)
 
 ## Reporting Issues

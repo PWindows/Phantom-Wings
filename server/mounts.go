@@ -7,8 +7,8 @@ import (
 
 	"github.com/apex/log"
 
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/environment"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/environment"
 )
 
 // To avoid confusion when working with mounts, assume that a server.Mount has not been properly

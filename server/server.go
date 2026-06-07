@@ -18,12 +18,12 @@ import (
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-json"
 
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/environment"
-	"github.com/pelican-dev/wings/events"
-	"github.com/pelican-dev/wings/remote"
-	"github.com/pelican-dev/wings/server/filesystem"
-	"github.com/pelican-dev/wings/system"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/environment"
+	"github.com/pwindows/phantom-wings/events"
+	"github.com/pwindows/phantom-wings/remote"
+	"github.com/pwindows/phantom-wings/server/filesystem"
+	"github.com/pwindows/phantom-wings/system"
 )
 
 // Server is the high level definition for a server instance being controlled

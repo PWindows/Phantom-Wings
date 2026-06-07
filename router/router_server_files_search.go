@@ -7,11 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/internal/ufs"
-	"github.com/pelican-dev/wings/router/middleware"
-	"github.com/pelican-dev/wings/server"
-	"github.com/pelican-dev/wings/server/filesystem"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/internal/ufs"
+	"github.com/pwindows/phantom-wings/router/middleware"
+	"github.com/pwindows/phantom-wings/server"
+	"github.com/pwindows/phantom-wings/server/filesystem"
 )
 
 // Structs needed to respond with the matched files and all their info

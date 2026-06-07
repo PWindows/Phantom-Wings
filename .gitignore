@@ -39,8 +39,11 @@
 wings
 wings.exe
 
-# IDE/Editor files (VS Code)
+# IDE/Editor files
 /.vscode
+/.vs
+/.claude
+/.codex
 
 # test files
 test_*/

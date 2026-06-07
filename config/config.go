@@ -252,7 +252,7 @@ func WriteToDisk(c *Configuration) error {
 	return nil
 }
 
-func EnsurePelicanUser() error {
+func EnsurePhantomUser() error {
 	sysName, err := getSystemName()
 	if err != nil {
 		return err

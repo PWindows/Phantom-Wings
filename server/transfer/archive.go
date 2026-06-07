@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/apex/log"
-	"github.com/pelican-dev/wings/config"
-	"github.com/pelican-dev/wings/internal/progress"
-	"github.com/pelican-dev/wings/server/filesystem"
+	"github.com/pwindows/phantom-wings/config"
+	"github.com/pwindows/phantom-wings/internal/progress"
+	"github.com/pwindows/phantom-wings/server/filesystem"
 )
 
 // Archive returns an archive that can be used to stream the contents of the
