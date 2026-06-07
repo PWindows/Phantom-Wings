@@ -33,9 +33,9 @@ func (s *Server) notifyPanelOfBackup(uuid string, ad *backup.ArchiveDetails, suc
 	return nil
 }
 
-// Get all of the ignored files for a server based on its .pelicanignore file in the root.
+// Get all of the ignored files for a server based on its .phantomignore file in the root.
 func (s *Server) getServerwideIgnoredFiles() (string, error) {
-	f, st, err := s.Filesystem().File(".pelicanignore")
+	f, st, err := s.Filesystem().File(".phantomignore")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", nil

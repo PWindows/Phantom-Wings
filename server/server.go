@@ -55,7 +55,7 @@ type Server struct {
 	emitter *events.Bus
 
 	// Defines the process configuration for the server instance. This is dynamically
-	// fetched from the Pelican Server instance each time the server process is
+	// fetched from the Phantom Server instance each time the server process is
 	// started, and then cached here.
 	procConfig *remote.ProcessConfiguration
 
