@@ -10,10 +10,16 @@ import (
 	"emperror.dev/errors"
 	"github.com/apex/log"
 
-	"github.com/pwindows/phantom-wings/environment"
 	"github.com/pwindows/phantom-wings/events"
 	"github.com/pwindows/phantom-wings/remote"
 	"github.com/pwindows/phantom-wings/system"
+)
+
+const (
+	ProcessOfflineState  = "offline"
+	ProcessStartingState = "starting"
+	ProcessRunningState  = "running"
+	ProcessStoppingState = "stopping"
 )
 
 type Metadata struct {
