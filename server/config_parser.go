@@ -3,27 +3,20 @@ package server
 import (
 	"os"
 	"runtime"
-
 	"fmt"
 	"strings"
 
 	"github.com/gammazero/workerpool"
-	"github.com/pwindows/phantom-wings/internal/ufs"
 )
 
-// Helper function to replace variables in the file path of the configuration parser
 func replaceParserConfigPathVariables(filename string, envvars map[string]interface{}) string {
-	// Check if filename contains at least one '{' and one '}'
-	// This is here for performance as 99% of the eggs configuration parsers do not have variables in its path
 	if !strings.Contains(filename, "{") || !strings.Contains(filename, "}") {
 		return filename
 	}
 
-	// Replace "{{" with "${" and "}}" with "}"
 	filename = strings.ReplaceAll(filename, "{{", "${")
 	filename = strings.ReplaceAll(filename, "}}", "}")
 
-	// replaces ${varname} with varval
 	for varname, varval := range envvars {
 		filename = strings.ReplaceAll(filename, fmt.Sprintf("${%s}", varname), fmt.Sprint(varval))
 	}
@@ -31,25 +24,32 @@ func replaceParserConfigPathVariables(filename string, envvars map[string]interf
 	return filename
 }
 
-// UpdateConfigurationFiles updates all the defined configuration files for
-// a server automatically to ensure that they always use the specified values.
 func (s *Server) UpdateConfigurationFiles() {
 	pool := workerpool.New(runtime.NumCPU())
 
 	s.Log().Debug("acquiring process configuration files...")
 	files := s.ProcessConfiguration().ConfigurationFiles
 	s.Log().Debug("acquired process configuration files")
+
 	for _, cf := range files {
 		f := cf
 
 		pool.Submit(func() {
 			filename := replaceParserConfigPathVariables(f.FileName, s.Config().EnvVars)
-			file, err := func() (ufs.File, error) {
-				if f.AllowCreateFile {
-					return s.Filesystem().UnixFS().Touch(filename, ufs.O_RDWR|ufs.O_CREATE, 0o644)
-				}
-				return s.Filesystem().UnixFS().Open(filename)
-			}()
+
+			var file *os.File
+			var err error
+
+			if f.AllowCreateFile {
+				file, err = os.OpenFile(
+					s.Filesystem().Path()+"/"+filename,
+					os.O_RDWR|os.O_CREATE,
+					0o644,
+				)
+			} else {
+				file, err = os.Open(s.Filesystem().Path() + "/" + filename)
+			}
+
 			if err != nil {
 				log := s.Log().WithField("file_name", filename)
 				if os.IsNotExist(err) && !f.AllowCreateFile {
