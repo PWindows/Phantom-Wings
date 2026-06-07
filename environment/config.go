@@ -68,17 +68,14 @@ func (l Limits) AsContainerResources() container.Resources {
 		OomKillDisable:    boolPtr(!l.OOMKiller),
 		PidsLimit:         &pids,
 	}
-
 	if l.CpuLimit > 0 {
 		resources.CPUQuota = l.CpuLimit * 1_000
 		resources.CPUPeriod = 100_000
 		resources.CPUShares = 1024
 	}
-
 	if l.Threads != "" {
 		resources.CpusetCpus = l.Threads
 	}
-
 	return resources
 }
 
@@ -89,7 +86,6 @@ func (v Variables) Get(key string) string {
 	if !ok {
 		return ""
 	}
-
 	switch val.(type) {
 	case int:
 		return strconv.Itoa(val.(int))
@@ -106,7 +102,6 @@ func (v Variables) Get(key string) string {
 	case string:
 		return val.(string)
 	}
-
 	log.Warn(fmt.Sprintf("failed to marshal environment variable \"%s\" of type %+v into string", key, val))
 	return ""
 }
