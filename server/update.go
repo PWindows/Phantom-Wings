@@ -3,8 +3,6 @@ package server
 import (
 	"time"
 
-	"github.com/pwindows/phantom-wings/environment/docker"
-
 	"github.com/pwindows/phantom-wings/environment"
 )
 
@@ -31,13 +29,7 @@ func (s *Server) SyncWithEnvironment() {
 		Labels:      cfg.Labels,
 	})
 
-	// For Docker specific environments we also want to update the configured image
-	// and stop configuration.
-	if e, ok := s.Environment.(*docker.Environment); ok {
-		s.Log().Debug("syncing stop configuration with configured docker environment")
-		e.SetImage(cfg.Container.Image)
-		e.SetStopConfiguration(s.ProcessConfiguration().Stop)
-	}
+	s.syncEnvironmentSpecific(cfg)
 
 	// If build limits are changed, environment variables also change. Plus, any modifications to
 	// the startup command also need to be properly propagated to this environment.
@@ -47,11 +39,7 @@ func (s *Server) SyncWithEnvironment() {
 		// Update the environment in place, allowing memory and CPU usage to be adjusted
 		// on the fly without the user needing to reboot (theoretically).
 		s.Log().Info("performing server limit modification on-the-fly")
-		if err := s.Environment.InSituUpdate(); err != nil {
-			// This is not a failure, the process is still running fine and will fix itself on the
-			// next boot, or fail out entirely in a more logical position.
-			s.Log().WithField("error", err).Warn("failed to perform on-the-fly update of the server environment")
-		}
+		s.syncEnvironmentInSitu()
 	} else {
 		// Checks if the server is now in a suspended state. If so and a server process is currently running it
 		// will be gracefully stopped (and terminated if it refuses to stop).

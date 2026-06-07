@@ -17,7 +17,6 @@ import (
 
 	"github.com/pwindows/phantom-wings/config"
 	"github.com/pwindows/phantom-wings/environment"
-	"github.com/pwindows/phantom-wings/environment/docker"
 	"github.com/pwindows/phantom-wings/remote"
 	"github.com/pwindows/phantom-wings/server/filesystem"
 )
@@ -201,9 +200,6 @@ func (m *Manager) InitServer(data remote.ServerConfigurationResponse) (*Server, 
 		return nil, errors.WithStackIf(err)
 	}
 
-	// Right now we only support a Docker based environment, so I'm going to hard code
-	// this logic in. When we're ready to support other environment we'll need to make
-	// some modifications here, obviously.
 	settings := environment.Settings{
 		Mounts:      s.Mounts(),
 		Allocations: s.cfg.Allocations,
@@ -212,11 +208,16 @@ func (m *Manager) InitServer(data remote.ServerConfigurationResponse) (*Server, 
 	}
 
 	envCfg := environment.NewConfiguration(settings, s.GetEnvironmentVariables())
-	meta := docker.Metadata{
-		Image: s.Config().Container.Image,
+	workDir := filepath.Join(config.Get().System.Data, s.ID())
+	meta := environment.EnvironmentMetadata{
+		Image:      s.Config().Container.Image,
+		WorkingDir: workDir,
+	}
+	if pc := s.ProcessConfiguration(); pc != nil {
+		meta.Stop = pc.Stop
 	}
 
-	if env, err := docker.New(s.ID(), &meta, envCfg); err != nil {
+	if env, err := environment.NewProcessEnvironment(s.ID(), meta, envCfg); err != nil {
 		return nil, err
 	} else {
 		s.Environment = env

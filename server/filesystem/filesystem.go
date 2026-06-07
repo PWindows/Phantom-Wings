@@ -38,7 +38,7 @@ func New(root string, size int64, denylist []string) (*Filesystem, error) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, err
 	}
-	unixFS, err := ufs.NewUnixFS(root, config.UseOpenat2())
+	unixFS, err := ufs.NewSandboxFS(root, config.UseOpenat2())
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (fs *Filesystem) ReadDir(path string) ([]ufs.DirEntry, error) {
 // ReadDirStat is like ReadDir except that it returns FileInfo for each entry
 // instead of just a DirEntry.
 func (fs *Filesystem) ReadDirStat(path string) ([]ufs.FileInfo, error) {
-	return ufs.ReadDirMap(fs.unixFS.UnixFS, path, func(e ufs.DirEntry) (ufs.FileInfo, error) {
+	return ufs.ReadDirMapFS(fs.unixFS, path, func(e ufs.DirEntry) (ufs.FileInfo, error) {
 		return e.Info()
 	})
 }
@@ -88,8 +88,8 @@ func (fs *Filesystem) File(p string) (ufs.File, Stat, error) {
 	return f, st, nil
 }
 
-func (fs *Filesystem) UnixFS() *ufs.UnixFS {
-	return fs.unixFS.UnixFS
+func (fs *Filesystem) CloseSandbox() error {
+	return fs.unixFS.Close()
 }
 
 // Touch acts by creating the given file and path on the disk if it is not present
@@ -380,18 +380,17 @@ func (fs *Filesystem) TruncateRootDirectory() error {
 	if err := os.Mkdir(fs.Path(), 0o755); err != nil {
 		return err
 	}
+	limit := fs.unixFS.Limit()
+	if fs.isTest {
+		limit = 0
+	}
 	_ = fs.unixFS.Close()
-	unixFS, err := ufs.NewUnixFS(fs.Path(), config.UseOpenat2())
+	quota, err := ufs.NewSandboxFS(fs.Path(), config.UseOpenat2())
 	if err != nil {
 		return err
 	}
-	var limit int64
-	if fs.isTest {
-		limit = 0
-	} else {
-		limit = fs.unixFS.Limit()
-	}
-	fs.unixFS = ufs.NewQuota(unixFS, limit)
+	quota.SetLimit(limit)
+	fs.unixFS = quota
 	return nil
 }
 
@@ -493,7 +492,7 @@ func (fs *Filesystem) SafeDeleteRecursively(p string) error {
 func (fs *Filesystem) ListDirectory(p string) ([]Stat, error) {
 	// Read entries from the path on the filesystem, using the mapped reader, so
 	// we can map the DirEntry slice into a Stat slice with mimetype information.
-	out, err := ufs.ReadDirMap(fs.unixFS.UnixFS, p, func(e ufs.DirEntry) (Stat, error) {
+	out, err := ufs.ReadDirMapFS(fs.unixFS, p, func(e ufs.DirEntry) (Stat, error) {
 		info, err := e.Info()
 		if err != nil {
 			return Stat{}, err

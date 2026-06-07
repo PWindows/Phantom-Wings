@@ -20,7 +20,6 @@ import (
 
 	"github.com/pwindows/phantom-wings/config"
 	"github.com/pwindows/phantom-wings/environment"
-	"github.com/pwindows/phantom-wings/environment/docker"
 	"github.com/pwindows/phantom-wings/internal/models"
 	"github.com/pwindows/phantom-wings/router/tokens"
 	"github.com/pwindows/phantom-wings/server"
@@ -442,7 +441,7 @@ func (h *Handler) HandleInbound(ctx context.Context, m Message) error {
 			//
 			//  Or maybe just an IsBooted function?
 			if h.server.Environment.State() == environment.ProcessStartingState {
-				if e, ok := h.server.Environment.(*docker.Environment); ok {
+				if e, ok := h.server.Environment.(environment.ConsoleAttachable); ok {
 					if !e.IsAttached() {
 						return nil
 					}

@@ -1,40 +1,22 @@
 package diagnostics
 
 import (
-	"context"
 	"fmt"
-	"io"
-	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	dockerSystem "github.com/docker/docker/api/types/system"
-	"github.com/docker/docker/pkg/parsers/kernel"
-	"github.com/docker/docker/pkg/parsers/operatingsystem"
 	"github.com/pwindows/phantom-wings/config"
-	"github.com/pwindows/phantom-wings/environment"
 	"github.com/pwindows/phantom-wings/system"
 )
 
 func GenerateDiagnosticsReport(includeEndpoints bool, includeLogs bool, logLines int) (string, error) {
-	dockerVersion, dockerInfo, dockerErr := getDockerInfo()
 	output := &strings.Builder{}
 
 	fmt.Fprintln(output, "Phantom Wings - Diagnostics Report")
 	printHeader(output, "Versions")
 	fmt.Fprintln(output, "               Wings:", system.Version)
-	if dockerErr == nil {
-		fmt.Fprintln(output, "              Docker:", dockerVersion.Version)
-	}
-	if v, err := kernel.GetKernelVersion(); err == nil {
-		fmt.Fprintln(output, "              Kernel:", v)
-	}
-	if os, err := operatingsystem.GetOperatingSystem(); err == nil {
-		fmt.Fprintln(output, "                  OS:", os)
-	}
+	appendVersionInfo(output)
 
 	printHeader(output, "Phantom Wings Configuration")
 	if err := config.FromFile(config.DefaultLocation); err != nil {
@@ -60,44 +42,13 @@ func GenerateDiagnosticsReport(includeEndpoints bool, includeLogs bool, logLines
 	fmt.Fprintln(output, "         Server Time:", time.Now().Format(time.RFC1123Z))
 	fmt.Fprintln(output, "          Debug Mode:", cfg.Debug)
 
-	printHeader(output, "Docker: Info")
-	if dockerErr == nil {
-		fmt.Fprintln(output, "Server Version:", dockerInfo.ServerVersion)
-		fmt.Fprintln(output, "Storage Driver:", dockerInfo.Driver)
-		if dockerInfo.DriverStatus != nil {
-			for _, pair := range dockerInfo.DriverStatus {
-				fmt.Fprintf(output, "  %s: %s\n", pair[0], pair[1])
-			}
-		}
-		if dockerInfo.SystemStatus != nil {
-			for _, pair := range dockerInfo.SystemStatus {
-				fmt.Fprintf(output, " %s: %s\n", pair[0], pair[1])
-			}
-		}
-		fmt.Fprintln(output, "LoggingDriver:", dockerInfo.LoggingDriver)
-		fmt.Fprintln(output, " CgroupDriver:", dockerInfo.CgroupDriver)
-		if len(dockerInfo.Warnings) > 0 {
-			for _, w := range dockerInfo.Warnings {
-				fmt.Fprintln(output, w)
-			}
-		}
-	} else {
-		fmt.Fprintln(output, dockerErr.Error())
-	}
-
-	printHeader(output, "Docker: Running Containers")
-	c := exec.Command("docker", "ps")
-	if co, err := c.Output(); err == nil {
-		output.Write(co)
-	} else {
-		fmt.Fprint(output, "Couldn't list containers: ", err)
-	}
+	appendDockerInfo(output)
 
 	printHeader(output, "Latest Phantom Wings Logs")
 	if includeLogs {
 		p := path.Join(cfg.System.LogDirectory, "wings.log")
-		if c, err := exec.Command("tail", "-n", strconv.Itoa(logLines), p).Output(); err == nil {
-			fmt.Fprintf(output, "%s\n", string(c))
+		if c, err := readLastLines(p, logLines); err == nil {
+			fmt.Fprintf(output, "%s\n", c)
 		} else {
 			fmt.Fprintln(output, "No logs found or an error occurred.")
 		}
@@ -108,22 +59,6 @@ func GenerateDiagnosticsReport(includeEndpoints bool, includeLogs bool, logLines
 	return output.String(), nil
 }
 
-func getDockerInfo() (types.Version, dockerSystem.Info, error) {
-	client, err := environment.Docker()
-	if err != nil {
-		return types.Version{}, dockerSystem.Info{}, err
-	}
-	dockerVersion, err := client.ServerVersion(context.Background())
-	if err != nil {
-		return types.Version{}, dockerSystem.Info{}, err
-	}
-	dockerInfo, err := client.Info(context.Background())
-	if err != nil {
-		return types.Version{}, dockerSystem.Info{}, err
-	}
-	return dockerVersion, dockerInfo, nil
-}
-
 func redactField(s string, include bool) string {
 	if !include {
 		return "{redacted}"
@@ -131,7 +66,7 @@ func redactField(s string, include bool) string {
 	return s
 }
 
-func printHeader(w io.Writer, title string) {
-	fmt.Fprintln(w, "\n|\n|", title)
-	fmt.Fprintln(w, "| ------------------------------")
+func printHeader(output *strings.Builder, title string) {
+	fmt.Fprintln(output, "")
+	fmt.Fprintln(output, "-----", title, "-----")
 }

@@ -8,8 +8,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/apex/log"
-	"github.com/docker/docker/client"
-
 	"github.com/pwindows/phantom-wings/environment"
 	"github.com/pwindows/phantom-wings/remote"
 	"github.com/pwindows/phantom-wings/server/backup"
@@ -142,9 +140,7 @@ func (s *Server) RestoreBackup(b backup.BackupInterface, reader io.ReadCloser) (
 	// server being suspended.
 	if s.Environment.State() != environment.ProcessOfflineState {
 		if err = s.Environment.WaitForStop(s.Context(), 2*time.Minute, false); err != nil {
-			if !client.IsErrNotFound(err) {
-				return errors.WrapIf(err, "server/backup: restore: failed to wait for container stop")
-			}
+			return errors.WrapIf(err, "server/backup: restore: failed to wait for process stop")
 		}
 	}
 

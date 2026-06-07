@@ -20,7 +20,6 @@ import (
 	"github.com/NYTimes/logrotate"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/multi"
-	"github.com/docker/docker/client"
 	"github.com/gammazero/workerpool"
 	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
@@ -91,31 +90,12 @@ func init() {
 	rootCommand.AddCommand(newSelfupdateCommand())
 }
 
-func isDockerSnap() bool {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		log.Fatalf("Unable to initialize Docker client: %s", err)
-	}
-
-	defer cli.Close()
-
-	info, err := cli.Info(context.Background())
-	if err != nil {
-		log.Fatalf("Unable to get Docker info: %s", err)
-	}
-
-	return strings.Contains(info.DockerRootDir, "/var/snap/docker")
-}
-
 func rootCmdRun(cmd *cobra.Command, _ []string) {
 	printLogo()
 	log.Debug("running in debug mode")
 	log.WithField("config_file", configPath).Info("loading configuration from file")
 
-	if isDockerSnap() {
-		log.Error("Docker Snap installation detected. Exiting...")
-		os.Exit(1)
-	}
+	checkDockerSnapAndExit()
 
 	if ok, _ := cmd.Flags().GetBool("ignore-certificate-errors"); ok {
 		log.Warn("running with --ignore-certificate-errors: TLS certificate host chains and name will not be verified")
@@ -171,8 +151,8 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	if err := environment.ConfigureDocker(cmd.Context()); err != nil {
-		log.WithField("error", err).Fatal("failed to configure docker environment")
+	if err := environment.ConfigureEnvironment(cmd.Context()); err != nil {
+		log.WithField("error", err).Fatal("failed to configure process environment")
 		return
 	}
 
@@ -228,7 +208,7 @@ func rootCmdRun(cmd *cobra.Command, _ []string) {
 			defer cancel()
 
 			r, err := s.Environment.IsRunning(ctx)
-			if err != nil && !client.IsErrNotFound(err) {
+			if err != nil && !isEnvironmentNotFound(err) {
 				s.Log().WithField("error", err).Error("error checking server environment status")
 			}
 
@@ -418,18 +398,18 @@ in all copies or substantial portions of the Software.%s`), system.Version, "\n\
 }
 
 func exitWithConfigurationNotice() {
-	fmt.Print(colorstring.Color(`
+	fmt.Printf(colorstring.Color(`
 [_red_][white][bold]Error: Configuration File Not Found[reset]
 
 Phantom Wings was not able to locate your configuration file, and therefore is not
 able to complete its boot process. Please ensure you have copied your instance
 configuration file into the default location below.
 
-Default Location: /etc/phantom/config.yml
+Default Location: %s
 
 [yellow]This is not a bug with this software. Please do not make a bug report
 for this issue, it will be closed.[reset]
 
-`))
+`), configNotFoundLocation)
 	os.Exit(1)
 }

@@ -22,6 +22,11 @@ const (
 	ProcessStoppingState = "stopping"
 )
 
+// ConsoleAttachable is implemented by environments that support stdin attachment.
+type ConsoleAttachable interface {
+	IsAttached() bool
+}
+
 type ProcessEnvironment interface {
 	Type() string
 	Config() *Configuration

@@ -75,6 +75,23 @@ type WalkDirFunc func(path string, d DirEntry, err error) error
 //
 // WalkDir does not follow symbolic links found in directories,
 // but if root itself is a symbolic link, its target will be walked.
+// ReadDirMapFS reads a directory from any Filesystem and maps each entry.
+func ReadDirMapFS[T any](fs Filesystem, path string, fn func(DirEntry) (T, error)) ([]T, error) {
+	entries, err := fs.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]T, 0, len(entries))
+	for _, e := range entries {
+		v, err := fn(e)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
 func WalkDir(fs Filesystem, root string, fn WalkDirFunc) error {
 	info, err := fs.Stat(root)
 	if err != nil {

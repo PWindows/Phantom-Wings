@@ -1,3 +1,5 @@
+//go:build linux
+
 package environment
 
 import (
@@ -25,6 +27,10 @@ func Docker() (*client.Client, error) {
 		_client, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	})
 	return _client, errors.Wrap(err, "environment/docker: could not create client")
+}
+
+func ConfigureEnvironment(ctx context.Context) error {
+	return ConfigureDocker(ctx)
 }
 
 func ConfigureDocker(ctx context.Context) error {

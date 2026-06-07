@@ -1,3 +1,5 @@
+//go:build unix
+
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: Copyright (c) 2024 Matthew Penner
 

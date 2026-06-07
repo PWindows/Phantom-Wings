@@ -44,6 +44,7 @@ wings.exe
 /.vs
 /.claude
 /.codex
+/.cursor
 
 # test files
 test_*/
