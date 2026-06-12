@@ -33,7 +33,7 @@ type managedProcess struct {
 	attached bool
 
 	startedAt time.Time
-	exitCode  uint32
+	exitCodeVal  uint32
 }
 
 func (e *Environment) workingDir() string {
@@ -168,7 +168,7 @@ func (e *Environment) monitorProcess(stdout, stderr io.Reader, p *managedProcess
 	if p.cmd.Process != nil {
 		state, err := p.cmd.Process.Wait()
 		if err == nil {
-			p.exitCode = uint32(state.ExitCode())
+			p.exitCodeVal = uint32(state.ExitCode())
 		}
 	}
 }
@@ -352,7 +352,7 @@ func (p *managedProcess) isRunning() (bool, error) {
 func (p *managedProcess) exitCode() uint32 {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.exitCode
+	return p.exitCodeVal
 }
 
 func (e *Environment) Uptime(ctx context.Context) (int64, error) {

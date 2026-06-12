@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"emperror.dev/errors"
 	"github.com/apex/log"

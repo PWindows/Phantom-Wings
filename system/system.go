@@ -2,7 +2,6 @@ package system
 
 import (
 	"net"
-	"runtime"
 	"strings"
 
 	"github.com/shirou/gopsutil/v3/cpu"

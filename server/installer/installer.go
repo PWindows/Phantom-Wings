@@ -2,6 +2,7 @@ package installer
 
 import (
 	"context"
+	"time"
 	"emperror.dev/errors"
 	"github.com/asaskevich/govalidator"
 
@@ -27,7 +28,11 @@ func New(ctx context.Context, manager *server.Manager, details ServerDetails) (*
 		return nil, NewValidationError("uuid provided was not in a valid format")
 	}
 
-	c, err := manager.Client().GetServerConfiguration(ctx, details.UUID)
+	// Use a background context so the Panel's timeout doesn't cancel this fetch.
+	bgCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	c, err := manager.Client().GetServerConfiguration(bgCtx, details.UUID)
 	if err != nil {
 		if !remote.IsRequestError(err) {
 			return nil, errors.WithStackIf(err)
@@ -35,8 +40,6 @@ func New(ctx context.Context, manager *server.Manager, details ServerDetails) (*
 		return nil, errors.WrapIf(err, "installer: could not get server configuration from remote API")
 	}
 
-	// Create a new server instance using the configuration we wrote to the disk
-	// so that everything gets instantiated correctly on the struct.
 	s, err := manager.InitServer(c)
 	if err != nil {
 		return nil, errors.WrapIf(err, "installer: could not init server instance")

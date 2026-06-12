@@ -209,15 +209,12 @@ func (m *Manager) InitServer(data remote.ServerConfigurationResponse) (*Server, 
 
 	envCfg := environment.NewConfiguration(settings, s.GetEnvironmentVariables())
 	workDir := filepath.Join(config.Get().System.Data, s.ID())
-	meta := environment.EnvironmentMetadata{
-		Image:      s.Config().Container.Image,
-		WorkingDir: workDir,
-	}
+	stopConfig := remote.ProcessStopConfiguration{}
 	if pc := s.ProcessConfiguration(); pc != nil {
-		meta.Stop = pc.Stop
+		stopConfig = pc.Stop
 	}
 
-	if env, err := environment.NewProcessEnvironment(s.ID(), meta, envCfg); err != nil {
+	if env, err := newProcessEnvironment(s.ID(), s.Config().Container.Image, workDir, stopConfig, envCfg); err != nil {
 		return nil, err
 	} else {
 		s.Environment = env

@@ -7,8 +7,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/apex/log"
-
-	"github.com/pwindows/phantom-wings/internal/ufs"
 )
 
 type SpaceCheckingOpts struct {

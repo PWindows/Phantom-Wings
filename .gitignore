@@ -49,6 +49,9 @@ wings.exe
 # test files
 test_*/
 
+# Database files
+/database
+
 # Keep all gitkeep files (This needs to stay at the bottom)
 !.gitkeep
 debug
@@ -57,3 +60,4 @@ debug
 *.pdf
 pprof.*
 go1.24.3.linux-amd64.tar.gz
+.env

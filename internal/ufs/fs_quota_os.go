@@ -2,7 +2,11 @@
 
 package ufs
 
-import "sync/atomic"
+import (
+	iofs "io/fs"
+	"path/filepath"
+	"sync/atomic"
+)
 
 type Quota struct {
 	*OsFS
@@ -87,5 +91,19 @@ func (fs *Quota) unlinkat(dirfd int, name string, flags int) error {
 }
 
 func removeAllOs(fs *Quota, path string) error {
+	var size int64
+	_ = filepath.WalkDir(path, func(_ string, d iofs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err == nil && info.Mode().IsRegular() {
+			size += info.Size()
+		}
+		return nil
+	})
+	if size > 0 {
+		defer fs.Add(-size)
+	}
 	return fs.OsFS.RemoveAll(path)
 }

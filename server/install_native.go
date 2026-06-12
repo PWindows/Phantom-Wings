@@ -3,7 +3,6 @@
 package server
 
 import (
-	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/apex/log"
 
 	"github.com/pwindows/phantom-wings/config"
 	"github.com/pwindows/phantom-wings/environment"

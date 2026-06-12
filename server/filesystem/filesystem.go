@@ -42,10 +42,10 @@ func New(root string, size int64, denylist []string) (*Filesystem, error) {
 	if err != nil {
 		return nil, err
 	}
-	quota := ufs.NewQuota(unixFS, size)
+	unixFS.SetLimit(size)
 
 	return &Filesystem{
-		unixFS: quota,
+		unixFS: unixFS,
 
 		diskCheckInterval: time.Duration(config.Get().System.DiskCheckInterval),
 		lastLookupTime:    &usageLookupTime{},
@@ -310,6 +310,9 @@ func (fs *Filesystem) Copy(p string) error {
 	}
 	source, err := fs.unixFS.OpenFileat(dirfd, name, ufs.O_RDONLY, 0)
 	if err != nil {
+		if errors.Is(err, ufs.ErrBadPathResolution) {
+			return ufs.ErrNotExist
+		}
 		return err
 	}
 	defer source.Close()

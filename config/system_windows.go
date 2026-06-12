@@ -12,8 +12,6 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/apex/log"
-
-	"github.com/pwindows/phantom-wings/system"
 )
 
 func ApplyPlatformDefaults(c *Configuration) {
